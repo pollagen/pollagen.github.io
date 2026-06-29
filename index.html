@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Poll-a-gen — UK pollinator genomics monitoring</title>
+<meta name="description" content="Poll-a-gen tracks the genomic sampling of UK pollinators: a live specimen count and a district-level map of records across Great Britain.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div>
+      <span class="brand">Poll&#8209;a&#8209;<b>gen</b></span>
+    </div>
+    <span class="tagline">UK pollinator genomics monitoring</span>
+    <nav>
+      <button class="tab active" data-target="panel-home">Home</button>
+      <button class="tab" data-target="panel-map">Map</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- ============ HOME ============ -->
+  <section id="panel-home" class="panel active">
+    <div class="hero">
+      <div>
+        <p class="eyebrow">Live sampling tracker</p>
+        <h1>Sequencing the pollinators of Britain, one specimen at a time.</h1>
+        <p>Poll&#8209;a&#8209;gen records the bees, hoverflies and wasps collected for DNA
+        sequencing across the UK. Every specimen added to the project dataset is counted
+        here and placed on the map below — a running picture of where, and what, we are
+        sampling.</p>
+      </div>
+      <div class="tally">
+        <div class="total"><span id="total-count">0</span>
+          <span class="unit">specimens sequenced</span></div>
+        <div class="meta">
+          <span id="species-n">0</span> species ·
+          <span id="districts-n">0</span> districts ·
+          updated from the project dataset
+        </div>
+      </div>
+    </div>
+
+    <div class="species-block">
+      <h2>By species</h2>
+      <div id="sp-list" class="sp-list"><p class="loading">Counting specimens…</p></div>
+    </div>
+  </section>
+
+  <!-- ============ MAP ============ -->
+  <section id="panel-map" class="panel">
+    <div class="map-head">
+      <div>
+        <h1>Where we're sampling</h1>
+        <p>Records aggregated to local authority district. Click a district for its
+        per&#8209;species breakdown, or filter to a single species.</p>
+      </div>
+      <div class="controls">
+        <label for="species-filter">Show</label>
+        <select id="species-filter"><option>Loading…</option></select>
+      </div>
+    </div>
+    <div id="map"><p class="loading" id="map-loading">Loading map…</p></div>
+    <div class="legend">
+      <span id="legend-label">specimens per district</span>
+      <span class="swatches" id="legend-swatches"></span>
+      <span>0 → <b id="legend-max">—</b></span>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div>
+    <span>Poll&#8209;a&#8209;gen · open data, open source</span>
+    <span>Boundaries: ONS / martinjc UK&#8209;GeoJSON · Basemap: CARTO</span>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/topojson-client@3/dist/topojson-client.min.js"></script>
+<script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
