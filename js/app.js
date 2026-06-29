@@ -1,4 +1,4 @@
-/* ===== Poll-a-gen ===== load data, aggregate, render tracker + map ===== */
+/* ===== Poll-A-Gen ===== load data, aggregate, render tracker + map ===== */
 
 const DATA_CSV   = 'data/specimens.csv';
 const DATA_GEO   = 'data/uk-districts.json';

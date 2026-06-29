@@ -1,4 +1,4 @@
-# Poll-a-gen
+# Poll-A-Gen
 
 A static project website for tracking the genomic sampling of UK pollinators.
 Two views:
