@@ -136,6 +136,30 @@ function groupedSpecies(){
   }
   return groups;
 }
+/* Which groups share a column on the homepage, so the three columns balance:
+   Bumblebees | Solitary bees + Wasps | Hoverflies */
+const COLUMN_LAYOUT = [
+  ['Bumblebees'],
+  ['Solitary bees','Wasps'],
+  ['Hoverflies'],
+];
+function renderGroup(groupName, species, max){
+  const wrap = document.createElement('div');
+  wrap.className='sp-group';
+  const got = species.reduce((a,s)=>a+(GLOBAL.species[s]||0),0);
+  wrap.innerHTML = `<h3 class="sp-group-h">${groupName}
+    <span class="sp-group-n">${got}</span></h3>`;
+  for(const s of species){
+    const n = GLOBAL.species[s]||0;
+    const row=document.createElement('div');
+    row.className = 'sp-row' + (n===0 ? ' zero' : '');
+    row.innerHTML=`<span class="sp-name">${s}</span>
+      <span class="sp-bar" style="width:${n===0?0:28+(n/max)*120}px"></span>
+      <span class="sp-count">${n}</span>`;
+    wrap.appendChild(row);
+  }
+  return wrap;
+}
 function renderTracker(){
   countUp(document.getElementById('total-count'), GLOBAL.total);
   document.getElementById('species-n').textContent  = SPECIES.length;            // species with specimens
@@ -143,25 +167,27 @@ function renderTracker(){
 
   const max = Math.max(1, ...SPECIES.map(s=>GLOBAL.species[s]));
   const groups = groupedSpecies();
+  const byName = new Map(groups);
   const list = document.getElementById('sp-list');
   list.innerHTML='';
-  for(const [groupName, species] of groups){
-    const wrap = document.createElement('div');
-    wrap.className='sp-group';
-    const got = species.reduce((a,s)=>a+(GLOBAL.species[s]||0),0);
-    wrap.innerHTML = `<h3 class="sp-group-h">${groupName}
-      <span class="sp-group-n">${got}</span></h3>`;
-    for(const s of species){
-      const n = GLOBAL.species[s]||0;
-      const row=document.createElement('div');
-      row.className = 'sp-row' + (n===0 ? ' zero' : '');
-      row.innerHTML=`<span class="sp-name">${s}</span>
-        <span class="sp-bar" style="width:${n===0?0:28+(n/max)*120}px"></span>
-        <span class="sp-count">${n}</span>`;
-      wrap.appendChild(row);
+
+  const placed = new Set();
+  const columns = COLUMN_LAYOUT.map(names=>{
+    const col=document.createElement('div'); col.className='sp-col';
+    for(const name of names){
+      if(!byName.has(name)) continue;
+      col.appendChild(renderGroup(name, byName.get(name), max));
+      placed.add(name);
     }
-    list.appendChild(wrap);
+    return col;
+  });
+  // any group not in the layout (e.g. "Other species") -> shortest column
+  for(const [name,species] of groups){
+    if(placed.has(name)) continue;
+    const target = columns.reduce((a,b)=> a.childElementCount<=b.childElementCount ? a : b);
+    target.appendChild(renderGroup(name, species, max));
   }
+  columns.forEach(c=>list.appendChild(c));
 }
 function countUp(el,to){
   if(matchMedia('(prefers-reduced-motion:reduce)').matches){el.textContent=to;return;}
