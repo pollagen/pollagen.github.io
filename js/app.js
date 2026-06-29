@@ -1,10 +1,9 @@
 /* ===== Poll-A-Gen ===== load data, aggregate, render tracker + map ===== */
 
 const DATA_CSV    = 'data/specimens.csv';
-const DATA_GEO    = 'data/uk-districts.json';
-const DATA_COUNTY = 'data/lad-to-county.json';   // LAD13CD -> county / unitary authority
-const NAME_PROP   = 'LAD13NM';                   // district name field in the TopoJSON
-const CODE_PROP   = 'LAD13CD';                   // district code field in the TopoJSON
+const DATA_GEO    = 'data/uk-counties.json';     // county / unitary authority TopoJSON (WGS84)
+const GEO_OBJECT  = 'counties';                  // object name inside the TopoJSON
+const NAME_PROP   = 'name';                      // county name field
 const RAMP = ['--c0','--c1','--c2','--c3','--c4','--c5','--c6']
   .map(v => getComputedStyle(document.documentElement).getPropertyValue(v).trim());
 
@@ -33,7 +32,7 @@ function pointInFeature(pt,g){
   if(g.type==='MultiPolygon') return g.coordinates.some(p=>pipPoly(pt,p));
   return false;
 }
-function centroid(g){               // rough centroid for nearest-district fallback
+function centroid(g){               // rough centroid for nearest-county fallback
   let sx=0,sy=0,n=0;
   const polys = g.type==='Polygon'?[g.coordinates]:g.coordinates;
   polys.forEach(p=>p[0].forEach(c=>{sx+=c[0];sy+=c[1];n++;}));
@@ -41,28 +40,20 @@ function centroid(g){               // rough centroid for nearest-district fallb
 }
 
 /* ---------- state ---------- */
-let FEATURES;                              // district features (for point-in-polygon)
-let COUNTY_GEO;                            // merged county features (choropleth)
-let LAD2COUNTY = {};                       // LAD13CD -> county name
+let COUNTY_GEO;                            // county features (choropleth + point-in-polygon)
 let COUNTS={}, GLOBAL={total:0,species:{}}, SPECIES=[], SPECIMENS=[], CURRENT='__all__';
 let map, geoLayer, markerLayer;
 
 /* ---------- load ---------- */
 async function init(){
   try{
-    const [csvText, topo, lad2county] = await Promise.all([
+    const [csvText, topo] = await Promise.all([
       fetch(DATA_CSV).then(r=>r.text()),
-      fetch(DATA_GEO).then(r=>r.json()),
-      fetch(DATA_COUNTY).then(r=>r.json())
+      fetch(DATA_GEO).then(r=>r.json())
     ]);
-    LAD2COUNTY = lad2county;
 
-    FEATURES = topojson.feature(topo, topo.objects.lad).features;
-    FEATURES.forEach(f=>{
-      f._c = centroid(f.geometry);
-      f._county = LAD2COUNTY[f.properties[CODE_PROP]] || f.properties[NAME_PROP];
-    });
-    COUNTY_GEO = buildCounties(topo);
+    COUNTY_GEO = topojson.feature(topo, topo.objects[GEO_OBJECT]);
+    COUNTY_GEO.features.forEach(f=> f._c = centroid(f.geometry));
 
     const rows = Papa.parse(csvText.trim(), {header:true, skipEmptyLines:true}).data
       .map(r=>({
@@ -73,53 +64,58 @@ async function init(){
       .filter(r=>r.sp && isFinite(r.lat) && isFinite(r.lng));
 
     aggregate(rows);
+    jitterSpecimens();
     renderTracker();
     buildFilter();
     initMap();
   }catch(e){
     console.error(e);
     document.querySelectorAll('.loading').forEach(el=>{
-      el.textContent='Could not load data. Check that data/specimens.csv, data/uk-districts.json and data/lad-to-county.json are present.';
+      el.textContent='Could not load data. Check that data/specimens.csv and data/uk-counties.json are present.';
     });
   }
-}
-
-/* ---------- roll districts up into counties (Issue 7) ---------- */
-function buildCounties(topo){
-  const geoms = topo.objects.lad.geometries;
-  const groups = {};
-  for(const g of geoms){
-    const county = LAD2COUNTY[g.properties[CODE_PROP]] || g.properties[NAME_PROP];
-    (groups[county] ??= []).push(g);
-  }
-  const features = Object.entries(groups).map(([name,gs])=>({
-    type:'Feature',
-    properties:{name},
-    geometry: topojson.merge(topo, gs)         // dissolves shared district borders
-  }));
-  return {type:'FeatureCollection', features};
 }
 
 /* ---------- aggregation (browser-side, every load) ---------- */
 function aggregate(rows){
   COUNTS={}; GLOBAL={total:0,species:{}}; SPECIMENS=[];
+  const FEATURES = COUNTY_GEO.features;
   for(const r of rows){
     const pt=[r.lng,r.lat];
     let f = FEATURES.find(f=>pointInFeature(pt,f.geometry));
-    if(!f){                                   // fallback: nearest district centroid
+    if(!f){                                   // fallback: nearest county centroid
       let best=Infinity;
       for(const cand of FEATURES){
         const dx=cand._c[0]-pt[0], dy=cand._c[1]-pt[1], d=dx*dx+dy*dy;
         if(d<best){best=d;f=cand;}
       }
     }
-    const id=f._county;
+    const id=f.properties[NAME_PROP];
     (COUNTS[id] ??= {total:0,species:{}});
     COUNTS[id].total++; COUNTS[id].species[r.sp]=(COUNTS[id].species[r.sp]||0)+1;
     GLOBAL.total++; GLOBAL.species[r.sp]=(GLOBAL.species[r.sp]||0)+1;
     SPECIMENS.push({lat:r.lat, lng:r.lng, sp:r.sp, county:id});
   }
   SPECIES = Object.keys(GLOBAL.species).sort((a,b)=>GLOBAL.species[b]-GLOBAL.species[a]);
+}
+
+/* spread specimens that share identical coordinates so dots don't overlap (Issue 1).
+   Singletons keep their exact position; duplicates are fanned around a small circle.
+   Jitter is computed once so dots stay put when the species filter changes. */
+function jitterSpecimens(){
+  const groups={};
+  for(const s of SPECIMENS){ (groups[s.lat+','+s.lng] ??= []).push(s); }
+  for(const k in groups){
+    const arr=groups[k];
+    if(arr.length<2){ arr[0].dlat=arr[0].lat; arr[0].dlng=arr[0].lng; continue; }
+    const r = 0.004 + 0.0012*Math.min(6, arr.length);      // grows a little when crowded
+    const lngScale = 1/Math.cos(arr[0].lat*Math.PI/180);   // keep the ring visually round
+    arr.forEach((s,i)=>{
+      const a = 2*Math.PI*i/arr.length;
+      s.dlat = s.lat + r*Math.sin(a);
+      s.dlng = s.lng + r*Math.cos(a)*lngScale;
+    });
+  }
 }
 
 /* ---------- home: grouped species tracker (Issues 1 & 3) ---------- */
@@ -242,7 +238,7 @@ function drawMarkers(){
   markerLayer.clearLayers();
   const pts = CURRENT==='__all__' ? SPECIMENS : SPECIMENS.filter(s=>s.sp===CURRENT);
   for(const s of pts){
-    L.circleMarker([s.lat,s.lng],{
+    L.circleMarker([s.dlat ?? s.lat, s.dlng ?? s.lng],{
       radius:4, color:'#1c2620', weight:1, opacity:.9,
       fillColor:'#d98a2b', fillOpacity:.9
     }).bindPopup(`<div class="pop-name"><i>${s.sp}</i></div>

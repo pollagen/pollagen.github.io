@@ -6,16 +6,18 @@ Two views:
 1. **Home** — project summary and a live specimen tracker. Species are grouped under
    subheadings (Bumblebees, Solitary bees, Wasps, Hoverflies); every species in the
    project's target list is shown, including those with **0 specimens** so far.
-2. **Map** — a Great Britain **county / unitary authority** map shaded by record count,
-   with a **dot for every specimen**, per-species summary stats in each county popup, and
-   a species filter. Desktop zoom is **Ctrl + scroll**; pinch-zoom works on touch.
+2. **Map** — a UK **county / unitary authority** map shaded by record count, with a
+   **dot for every specimen** (overlapping records are fanned out so each is visible),
+   per-species summary stats in each county popup, and a species filter. Desktop zoom is
+   **Ctrl + scroll**; pinch-zoom works on touch.
 
 A **Contact us** button (header and home page) opens a short form for people who'd like
 to collect specimens for the project; submitting composes an email to
 `pollagen@nhm.ac.uk`. The Poll-A-Gen logo lives in [`docs/`](docs/).
 
-Everything runs in the browser. There is **no build step** — to update the site you
-commit a new CSV. It is designed to be hosted on GitHub Pages.
+Everything runs in the browser. Updating the data needs **no build step** — just commit a
+new CSV. (Regenerating the county boundaries is a one-off offline step; see below.) It is
+designed to be hosted on GitHub Pages.
 
 ## Repo layout
 
@@ -26,9 +28,11 @@ poll-a-gen/
 ├── js/app.js               # loads CSV + boundaries, aggregates, renders
 ├── data/
 │   ├── specimens.csv        # ← your data (you edit/replace this)
-│   ├── uk-districts.json    # GB local authority districts (TopoJSON, 380 areas)
-│   └── lad-to-county.json   # district code → county/unitary authority (for the rollup)
-├── docs/                   # brand assets: logo.svg, logo.png, favicon.png (+ README)
+│   ├── uk-counties.json     # county/unitary-authority boundaries the site loads (TopoJSON, WGS84)
+│   └── Counties_and_Unitary_Authorities_*UK_BGC*.geojson   # ONS source for the above
+├── scripts/
+│   └── build_counties.py   # regenerates uk-counties.json from the ONS source
+├── docs/                   # brand assets (logo.png + README)
 └── README.md
 ```
 
@@ -71,23 +75,26 @@ python3 -m http.server 8000   # then open http://localhost:8000
 
 ## Notes & decisions
 
-- **Geography unit.** Records are aggregated to **county / unitary authority** level.
-  The site loads the 380 GB local-authority districts and dissolves them into their
-  upper-tier authority at load time (`topojson.merge`), using `data/lad-to-county.json`
-  (London boroughs are grouped as *Greater London*). This gives ~175 county-level areas —
-  e.g. the old Buckinghamshire districts (Wycombe, Aylesbury Vale, …) now appear as a
-  single *Buckinghamshire*. Northern Ireland is not included (no NI records in the data).
-- **Per-specimen dots.** Every specimen is also plotted as an individual dot on the map,
-  honouring the species filter.
+- **Geography unit.** Records are aggregated to **county / unitary authority** level using
+  the ONS *Counties and Unitary Authorities (May 2023, UK, BGC)* boundaries. The source is
+  reprojected from British National Grid (EPSG:27700) to WGS84 and the metropolitan
+  districts / London boroughs are dissolved into their metropolitan counties / *Greater
+  London* — see `scripts/build_counties.py`, which produces `data/uk-counties.json` (156
+  areas). The site then just loads that file directly. To change the boundaries, replace
+  the ONS GeoJSON and re-run the script; no runtime rollup is performed.
+- **Per-specimen dots.** Every specimen is also plotted as an individual dot, honouring the
+  species filter. Records sharing identical coordinates are fanned around a small circle so
+  none are hidden underneath another.
 - **Map zoom.** Scroll-wheel zoom is gated behind **Ctrl** on desktop (a hint appears on a
   plain scroll) so the page still scrolls normally; touch pinch-zoom is unaffected.
 - **Off-boundary points.** A handful of coastal/island coordinates fall just outside the
-  simplified polygons; these are assigned to the nearest district by centroid so every
+  generalised polygons; these are assigned to the nearest county by centroid so every
   specimen is counted.
 - **Dependencies** (loaded from CDN, no install): Leaflet, topojson-client, PapaParse,
   CARTO basemap tiles, Google Fonts.
 
 ## Credits
 
-Boundaries derived from ONS Open Geography / [martinjc/UK-GeoJSON](https://github.com/martinjc/UK-GeoJSON).
-Basemap © OpenStreetMap contributors © CARTO.
+Boundaries: ONS Open Geography Portal — Counties and Unitary Authorities (May 2023) UK BGC.
+Contains OS data © Crown copyright and database right; ONS licensed under the Open
+Government Licence v3.0. Basemap © OpenStreetMap contributors © CARTO.
