@@ -3,9 +3,16 @@
 A static project website for tracking the genomic sampling of UK pollinators.
 Two views:
 
-1. **Home** — project blurb and a live specimen tracker (total, per-species, district count).
-2. **Map** — a Great Britain district map shaded by record count, with per-species
-   summary stats in each district popup and a species filter.
+1. **Home** — project summary and a live specimen tracker. Species are grouped under
+   subheadings (Bumblebees, Solitary bees, Wasps, Hoverflies); every species in the
+   project's target list is shown, including those with **0 specimens** so far.
+2. **Map** — a Great Britain **county / unitary authority** map shaded by record count,
+   with a **dot for every specimen**, per-species summary stats in each county popup, and
+   a species filter. Desktop zoom is **Ctrl + scroll**; pinch-zoom works on touch.
+
+A **Contact us** button (header and home page) opens a short form for people who'd like
+to collect specimens for the project; submitting composes an email to
+`pollagen@nhm.ac.uk`. The Poll-A-Gen logo lives in [`docs/`](docs/).
 
 Everything runs in the browser. There is **no build step** — to update the site you
 commit a new CSV. It is designed to be hosted on GitHub Pages.
@@ -14,14 +21,23 @@ commit a new CSV. It is designed to be hosted on GitHub Pages.
 
 ```
 poll-a-gen/
-├── index.html              # Home + Map tabs
+├── index.html              # Home + Map tabs + contact form
 ├── css/style.css
 ├── js/app.js               # loads CSV + boundaries, aggregates, renders
 ├── data/
 │   ├── specimens.csv        # ← your data (you edit/replace this)
-│   └── uk-districts.json    # GB local authority districts (TopoJSON, 380 areas)
+│   ├── uk-districts.json    # GB local authority districts (TopoJSON, 380 areas)
+│   └── lad-to-county.json   # district code → county/unitary authority (for the rollup)
+├── docs/                   # brand assets: logo.svg, logo.png, favicon.png (+ README)
 └── README.md
 ```
+
+### Editing the species list
+
+The grouped species list (and which species show even at 0) is defined in
+`js/app.js` as `SPECIES_GROUPS`. Add, remove or regroup species there. Any species
+present in the CSV but not listed is shown automatically under the matching genus group
+(or an "Other species" group).
 
 ## Updating the data
 
@@ -32,7 +48,7 @@ Scientific Name,Date,Lat,Long
 ```
 
 - `Lat` / `Long` are decimal degrees (WGS84). `Date` is currently not used by the site.
-- Counts (total, per-species, per-district) are recomputed in the browser on every load,
+- Counts (total, per-species, per-county) are recomputed in the browser on every load,
   so a new commit is all that's needed.
 - **Species names:** the site uses the names exactly as written in the CSV, so clean
   them at source (e.g. expand `B. pascuorum` to `Bombus pascuorum`, fix casing/typos).
@@ -55,12 +71,16 @@ python3 -m http.server 8000   # then open http://localhost:8000
 
 ## Notes & decisions
 
-- **Geography unit.** Records are aggregated to GB **local authority districts** (380
-  areas, the only boundary set that covers England, Scotland and Wales uniformly).
-  These are finer than ceremonial counties — e.g. Buckinghamshire appears as Wycombe,
-  Aylesbury Vale, etc. If you'd prefer ceremonial-county granularity, the districts can
-  be rolled up with a lookup table; ask and this can be added. Northern Ireland is not
-  included (no NI records in the current data).
+- **Geography unit.** Records are aggregated to **county / unitary authority** level.
+  The site loads the 380 GB local-authority districts and dissolves them into their
+  upper-tier authority at load time (`topojson.merge`), using `data/lad-to-county.json`
+  (London boroughs are grouped as *Greater London*). This gives ~175 county-level areas —
+  e.g. the old Buckinghamshire districts (Wycombe, Aylesbury Vale, …) now appear as a
+  single *Buckinghamshire*. Northern Ireland is not included (no NI records in the data).
+- **Per-specimen dots.** Every specimen is also plotted as an individual dot on the map,
+  honouring the species filter.
+- **Map zoom.** Scroll-wheel zoom is gated behind **Ctrl** on desktop (a hint appears on a
+  plain scroll) so the page still scrolls normally; touch pinch-zoom is unaffected.
 - **Off-boundary points.** A handful of coastal/island coordinates fall just outside the
   simplified polygons; these are assigned to the nearest district by centroid so every
   specimen is counted.
