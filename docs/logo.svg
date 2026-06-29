@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="Poll-A-Gen — a century of genomics">
+  <title>Poll-A-Gen — a century of genomics</title>
+  <defs>
+    <!-- arcs for the circular wordmark -->
+    <path id="arcTop" d="M 84,512 A 428,428 0 0 1 940,512"/>
+    <path id="arcBottom" d="M 120,512 A 392,392 0 0 0 904,512"/>
+    <style>
+      .ink   { fill:#1c2620; }
+      .line  { fill:none; stroke:#1c2620; }
+      .band  { fill:#1c2620; }
+      text   { font-family:"Fraunces", Georgia, serif; fill:#1c2620; }
+    </style>
+  </defs>
+
+  <!-- ===== circular wordmark ===== -->
+  <text font-size="118" font-weight="700" letter-spacing="6">
+    <textPath href="#arcTop" startOffset="50%" text-anchor="middle">POLL·A·GEN</textPath>
+  </text>
+  <text font-size="58" font-weight="600" letter-spacing="10">
+    <textPath href="#arcBottom" startOffset="50%" text-anchor="middle">A CENTURY OF GENOMICS</textPath>
+  </text>
+
+  <!-- ===== DNA double helix, left ===== -->
+  <g class="line" stroke-width="6.5" stroke-linecap="round" transform="translate(150,512)">
+    <path d="M 0,-150 C 25,-138 30,-125 30,-112 C 30,-99 25,-86 0,-75 C -25,-64 -30,-51 -30,-37 C -30,-24 -25,-11 0,0 C 25,11 30,24 30,37 C 30,51 25,64 0,75 C -25,86 -30,99 -30,112 C -30,125 -25,138 0,150"/>
+    <path d="M 0,-150 C -25,-138 -30,-125 -30,-112 C -30,-99 -25,-86 0,-75 C 25,-64 30,-51 30,-37 C 30,-24 25,-11 0,0 C -25,11 -30,24 -30,37 C -30,51 -25,64 0,75 C 25,86 30,99 30,112 C 30,125 25,138 0,150"/>
+    <line x1="-30" y1="-112" x2="30" y2="-112"/>
+    <line x1="-30" y1="-37"  x2="30" y2="-37"/>
+    <line x1="-30" y1="37"   x2="30" y2="37"/>
+    <line x1="-30" y1="112"  x2="30" y2="112"/>
+  </g>
+
+  <!-- ===== DNA double helix, right (mirrored) ===== -->
+  <g class="line" stroke-width="6.5" stroke-linecap="round" transform="translate(874,512) scale(-1,1)">
+    <path d="M 0,-150 C 25,-138 30,-125 30,-112 C 30,-99 25,-86 0,-75 C -25,-64 -30,-51 -30,-37 C -30,-24 -25,-11 0,0 C 25,11 30,24 30,37 C 30,51 25,64 0,75 C -25,86 -30,99 -30,112 C -30,125 -25,138 0,150"/>
+    <path d="M 0,-150 C -25,-138 -30,-125 -30,-112 C -30,-99 -25,-86 0,-75 C 25,-64 30,-51 30,-37 C 30,-24 25,-11 0,0 C -25,11 -30,24 -30,37 C -30,51 -25,64 0,75 C 25,86 30,99 30,112 C 30,125 25,138 0,150"/>
+    <line x1="-30" y1="-112" x2="30" y2="-112"/>
+    <line x1="-30" y1="-37"  x2="30" y2="-37"/>
+    <line x1="-30" y1="37"   x2="30" y2="37"/>
+    <line x1="-30" y1="112"  x2="30" y2="112"/>
+  </g>
+
+  <!-- ===== bee ===== -->
+  <g transform="translate(512,520)">
+    <!-- antennae -->
+    <g class="line" stroke-width="6" stroke-linecap="round">
+      <path d="M -16,-150 C -40,-188 -64,-196 -86,-188"/>
+      <path d="M 16,-150 C 40,-188 64,-196 86,-188"/>
+    </g>
+    <!-- wings -->
+    <g class="line" stroke-width="5" fill="#1c2620" fill-opacity="0.06">
+      <ellipse cx="-150" cy="-70" rx="130" ry="58" transform="rotate(-26 -150 -70)"/>
+      <ellipse cx="150"  cy="-70" rx="130" ry="58" transform="rotate(26 150 -70)"/>
+      <ellipse cx="-120" cy="20"  rx="96"  ry="44" transform="rotate(-14 -120 20)"/>
+      <ellipse cx="120"  cy="20"  rx="96"  ry="44" transform="rotate(14 120 20)"/>
+    </g>
+    <!-- head -->
+    <ellipse class="ink" cx="0" cy="-150" rx="46" ry="38"/>
+    <!-- thorax (fuzzy) -->
+    <ellipse class="ink" cx="0" cy="-72" rx="66" ry="62"/>
+    <!-- abdomen with stripes -->
+    <clipPath id="abdomen">
+      <ellipse cx="0" cy="92" rx="86" ry="132"/>
+    </clipPath>
+    <ellipse class="line" stroke-width="6" cx="0" cy="92" rx="86" ry="132"/>
+    <g clip-path="url(#abdomen)">
+      <rect class="band" x="-90" y="-46" width="180" height="40"/>
+      <rect class="band" x="-90" y="40"  width="180" height="44"/>
+      <rect class="band" x="-90" y="130" width="180" height="44"/>
+      <rect class="band" x="-90" y="216" width="180" height="30"/>
+    </g>
+  </g>
+</svg>

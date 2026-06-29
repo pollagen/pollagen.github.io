@@ -1,10 +1,22 @@
 /* ===== Poll-A-Gen ===== load data, aggregate, render tracker + map ===== */
 
-const DATA_CSV   = 'data/specimens.csv';
-const DATA_GEO   = 'data/uk-districts.json';
-const NAME_PROP  = 'LAD13NM';          // district name field in the TopoJSON
+const DATA_CSV    = 'data/specimens.csv';
+const DATA_GEO    = 'data/uk-districts.json';
+const DATA_COUNTY = 'data/lad-to-county.json';   // LAD13CD -> county / unitary authority
+const NAME_PROP   = 'LAD13NM';                   // district name field in the TopoJSON
+const CODE_PROP   = 'LAD13CD';                   // district code field in the TopoJSON
 const RAMP = ['--c0','--c1','--c2','--c3','--c4','--c5','--c6']
   .map(v => getComputedStyle(document.documentElement).getPropertyValue(v).trim());
+
+/* Canonical species list, grouped (Issues 1 & 3). Species with no specimens
+   still appear, shown as 0. Any species found in the data but not listed here is
+   added to the matching genus group, or to "Other species". */
+const SPECIES_GROUPS = [
+  ['Bumblebees',   ['Bombus terrestris','Bombus hortorum','Bombus pascuorum','Bombus lapidarius','Bombus jonellus','Bombus humilis','Bombus ruderatus']],
+  ['Solitary bees',['Osmia bicornis','Andrena flavipes']],
+  ['Wasps',        ['Vespula vulgaris','Dolichovespula sylvestris']],
+  ['Hoverflies',   ['Episyrphus balteatus','Syritta pipiens','Myathropa florea','Baccha elongata','Leucozona laternaria']],
+];
 
 /* ---------- geometry helpers ---------- */
 function pipRing(pt, ring){
@@ -29,19 +41,28 @@ function centroid(g){               // rough centroid for nearest-district fallb
 }
 
 /* ---------- state ---------- */
-let GEO, FEATURES, COUNTS={}, GLOBAL={total:0,species:{}}, SPECIES=[], CURRENT='__all__';
-let map, geoLayer;
+let FEATURES;                              // district features (for point-in-polygon)
+let COUNTY_GEO;                            // merged county features (choropleth)
+let LAD2COUNTY = {};                       // LAD13CD -> county name
+let COUNTS={}, GLOBAL={total:0,species:{}}, SPECIES=[], SPECIMENS=[], CURRENT='__all__';
+let map, geoLayer, markerLayer;
 
 /* ---------- load ---------- */
 async function init(){
   try{
-    const [csvText, topo] = await Promise.all([
+    const [csvText, topo, lad2county] = await Promise.all([
       fetch(DATA_CSV).then(r=>r.text()),
-      fetch(DATA_GEO).then(r=>r.json())
+      fetch(DATA_GEO).then(r=>r.json()),
+      fetch(DATA_COUNTY).then(r=>r.json())
     ]);
-    GEO = topojson.feature(topo, topo.objects.lad);
-    FEATURES = GEO.features;
-    FEATURES.forEach(f=> f._c = centroid(f.geometry));
+    LAD2COUNTY = lad2county;
+
+    FEATURES = topojson.feature(topo, topo.objects.lad).features;
+    FEATURES.forEach(f=>{
+      f._c = centroid(f.geometry);
+      f._county = LAD2COUNTY[f.properties[CODE_PROP]] || f.properties[NAME_PROP];
+    });
+    COUNTY_GEO = buildCounties(topo);
 
     const rows = Papa.parse(csvText.trim(), {header:true, skipEmptyLines:true}).data
       .map(r=>({
@@ -58,14 +79,30 @@ async function init(){
   }catch(e){
     console.error(e);
     document.querySelectorAll('.loading').forEach(el=>{
-      el.textContent='Could not load data. Check that data/specimens.csv and data/uk-districts.json are present.';
+      el.textContent='Could not load data. Check that data/specimens.csv, data/uk-districts.json and data/lad-to-county.json are present.';
     });
   }
 }
 
+/* ---------- roll districts up into counties (Issue 7) ---------- */
+function buildCounties(topo){
+  const geoms = topo.objects.lad.geometries;
+  const groups = {};
+  for(const g of geoms){
+    const county = LAD2COUNTY[g.properties[CODE_PROP]] || g.properties[NAME_PROP];
+    (groups[county] ??= []).push(g);
+  }
+  const features = Object.entries(groups).map(([name,gs])=>({
+    type:'Feature',
+    properties:{name},
+    geometry: topojson.merge(topo, gs)         // dissolves shared district borders
+  }));
+  return {type:'FeatureCollection', features};
+}
+
 /* ---------- aggregation (browser-side, every load) ---------- */
 function aggregate(rows){
-  COUNTS={}; GLOBAL={total:0,species:{}};
+  COUNTS={}; GLOBAL={total:0,species:{}}; SPECIMENS=[];
   for(const r of rows){
     const pt=[r.lng,r.lat];
     let f = FEATURES.find(f=>pointInFeature(pt,f.geometry));
@@ -76,31 +113,55 @@ function aggregate(rows){
         if(d<best){best=d;f=cand;}
       }
     }
-    const id=f.properties[NAME_PROP];
+    const id=f._county;
     (COUNTS[id] ??= {total:0,species:{}});
     COUNTS[id].total++; COUNTS[id].species[r.sp]=(COUNTS[id].species[r.sp]||0)+1;
     GLOBAL.total++; GLOBAL.species[r.sp]=(GLOBAL.species[r.sp]||0)+1;
+    SPECIMENS.push({lat:r.lat, lng:r.lng, sp:r.sp, county:id});
   }
   SPECIES = Object.keys(GLOBAL.species).sort((a,b)=>GLOBAL.species[b]-GLOBAL.species[a]);
 }
 
-/* ---------- home: tracker ---------- */
+/* ---------- home: grouped species tracker (Issues 1 & 3) ---------- */
+function groupedSpecies(){
+  const listed = new Set(SPECIES_GROUPS.flatMap(g=>g[1]));
+  const groups = SPECIES_GROUPS.map(([name,species])=>([name, species.slice()]));
+  // place any data species not in the canonical list into the right group
+  for(const sp of SPECIES){
+    if(listed.has(sp)) continue;
+    const genus = sp.split(' ')[0];
+    let g = groups.find(([,sps])=>sps.some(s=>s.split(' ')[0]===genus));
+    if(!g){ g=['Other species',[]]; groups.push(g); }
+    g[1].push(sp);
+  }
+  return groups;
+}
 function renderTracker(){
-  const totalEl=document.getElementById('total-count');
-  countUp(totalEl, GLOBAL.total);
-  document.getElementById('species-n').textContent = SPECIES.length;
-  document.getElementById('districts-n').textContent = Object.keys(COUNTS).length;
+  countUp(document.getElementById('total-count'), GLOBAL.total);
+  document.getElementById('species-n').textContent  = SPECIES.length;            // species with specimens
+  document.getElementById('counties-n').textContent = Object.keys(COUNTS).length;
 
-  const max=Math.max(...SPECIES.map(s=>GLOBAL.species[s]));
-  const list=document.getElementById('sp-list');
+  const max = Math.max(1, ...SPECIES.map(s=>GLOBAL.species[s]));
+  const groups = groupedSpecies();
+  const list = document.getElementById('sp-list');
   list.innerHTML='';
-  SPECIES.forEach(s=>{
-    const row=document.createElement('div'); row.className='sp-row';
-    row.innerHTML=`<span class="sp-name">${s}</span>
-      <span class="sp-bar" style="width:${28+ (GLOBAL.species[s]/max)*120}px"></span>
-      <span class="sp-count">${GLOBAL.species[s]}</span>`;
-    list.appendChild(row);
-  });
+  for(const [groupName, species] of groups){
+    const wrap = document.createElement('div');
+    wrap.className='sp-group';
+    const got = species.reduce((a,s)=>a+(GLOBAL.species[s]||0),0);
+    wrap.innerHTML = `<h3 class="sp-group-h">${groupName}
+      <span class="sp-group-n">${got}</span></h3>`;
+    for(const s of species){
+      const n = GLOBAL.species[s]||0;
+      const row=document.createElement('div');
+      row.className = 'sp-row' + (n===0 ? ' zero' : '');
+      row.innerHTML=`<span class="sp-name">${s}</span>
+        <span class="sp-bar" style="width:${n===0?0:28+(n/max)*120}px"></span>
+        <span class="sp-count">${n}</span>`;
+      wrap.appendChild(row);
+    }
+    list.appendChild(wrap);
+  }
 }
 function countUp(el,to){
   if(matchMedia('(prefers-reduced-motion:reduce)').matches){el.textContent=to;return;}
@@ -117,7 +178,7 @@ function buildFilter(){
   const sel=document.getElementById('species-filter');
   sel.innerHTML='<option value="__all__">All species</option>'+
     SPECIES.map(s=>`<option value="${s}">${s} (${GLOBAL.species[s]})</option>`).join('');
-  sel.addEventListener('change',e=>{CURRENT=e.target.value;styleLayer();});
+  sel.addEventListener('change',e=>{CURRENT=e.target.value;styleLayer();drawMarkers();});
 }
 function valueFor(name){
   const c=COUNTS[name]; if(!c) return 0;
@@ -137,17 +198,33 @@ function initMap(){
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',{
     attribution:'&copy; OpenStreetMap &copy; CARTO', subdomains:'abcd', maxZoom:12
   }).addTo(map);
-  geoLayer=L.geoJSON(GEO,{style:featStyle, onEachFeature:bindFeat}).addTo(map);
-  styleLayer(); drawLegend();
+  geoLayer=L.geoJSON(COUNTY_GEO,{style:featStyle, onEachFeature:bindFeat}).addTo(map);
+  markerLayer=L.layerGroup().addTo(map);
+  styleLayer(); drawMarkers(); drawLegend();
+  enableCtrlZoom();        // Issue 8: ctrl+scroll on desktop, pinch on mobile
 }
 function featStyle(f){
-  const name=f.properties[NAME_PROP];
+  const name=f.properties.name;
   return {fillColor:colour(valueFor(name),maxValue()),fillOpacity:.82,
     color:'#fff',weight:.6};
 }
 function styleLayer(){ if(geoLayer){geoLayer.setStyle(featStyle); drawLegend();} }
+
+/* dot for every specimen (Issue 6) */
+function drawMarkers(){
+  if(!markerLayer) return;
+  markerLayer.clearLayers();
+  const pts = CURRENT==='__all__' ? SPECIMENS : SPECIMENS.filter(s=>s.sp===CURRENT);
+  for(const s of pts){
+    L.circleMarker([s.lat,s.lng],{
+      radius:4, color:'#1c2620', weight:1, opacity:.9,
+      fillColor:'#d98a2b', fillOpacity:.9
+    }).bindPopup(`<div class="pop-name"><i>${s.sp}</i></div>
+      <div class="pop-total">${s.county}</div>`).addTo(markerLayer);
+  }
+}
 function bindFeat(f,layer){
-  const name=f.properties[NAME_PROP];
+  const name=f.properties.name;
   layer.on({
     mouseover:e=>e.target.setStyle({weight:2,color:'#1c2620'}),
     mouseout: e=>geoLayer.resetStyle(e.target),
@@ -168,18 +245,80 @@ function drawLegend(){
   el.innerHTML=RAMP.map(c=>`<i style="background:${c}"></i>`).join('');
   document.getElementById('legend-max').textContent=mx;
   document.getElementById('legend-label').textContent =
-    CURRENT==='__all__' ? 'specimens per district' : `${CURRENT} per district`;
+    CURRENT==='__all__' ? 'specimens per county' : `${CURRENT} per county`;
+}
+
+/* ---------- map zoom: Ctrl + scroll on desktop (Issue 8) ---------- */
+function enableCtrlZoom(){
+  const hint = document.getElementById('zoom-hint');
+  const container = map.getContainer();
+  let hintTimer;
+  const showHint=()=>{
+    if(!hint) return;
+    hint.classList.add('show');
+    clearTimeout(hintTimer);
+    hintTimer=setTimeout(()=>hint.classList.remove('show'),1100);
+  };
+  const hideHint=()=>{ if(hint){ hint.classList.remove('show'); clearTimeout(hintTimer);} };
+  container.addEventListener('wheel',(e)=>{
+    if(e.ctrlKey || e.metaKey){            // intentional zoom gesture
+      e.preventDefault();                  // stop the browser page-zoom
+      const delta  = e.deltaY < 0 ? 1 : -1;
+      const latlng = map.containerPointToLatLng(map.mouseEventToContainerPoint(e));
+      map.setZoomAround(latlng, map.getZoom()+delta);
+      hideHint();
+    }else{                                 // plain scroll → let the page scroll, nudge user
+      showHint();
+    }
+  },{passive:false});
 }
 
 /* ---------- tabs ---------- */
-document.querySelectorAll('.tab').forEach(btn=>{
-  btn.addEventListener('click',()=>{
+document.querySelectorAll('.tab[data-target], .brand-link[data-target]').forEach(btn=>{
+  btn.addEventListener('click',(e)=>{
+    e.preventDefault();
+    const target=btn.dataset.target;
     document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
     document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById(btn.dataset.target).classList.add('active');
-    if(btn.dataset.target==='panel-map' && map) setTimeout(()=>map.invalidateSize(),50);
+    document.querySelector(`.tab[data-target="${target}"]`)?.classList.add('active');
+    document.getElementById(target).classList.add('active');
+    if(target==='panel-map' && map) setTimeout(()=>map.invalidateSize(),50);
   });
 });
+
+/* ---------- contact modal (Issue 5) ---------- */
+(function contactModal(){
+  const modal = document.getElementById('contact-modal');
+  const form  = document.getElementById('contact-form');
+  if(!modal || !form) return;
+  const open  = ()=> (typeof modal.showModal==='function') ? modal.showModal() : modal.setAttribute('open','');
+  const close = ()=> (typeof modal.close==='function') ? modal.close() : modal.removeAttribute('open');
+
+  ['open-contact','open-contact-hero','open-contact-about'].forEach(id=>{
+    document.getElementById(id)?.addEventListener('click',e=>{e.preventDefault();open();});
+  });
+  document.getElementById('close-contact')?.addEventListener('click',close);
+  document.getElementById('cancel-contact')?.addEventListener('click',close);
+  modal.addEventListener('click',e=>{ if(e.target===modal) close(); });   // backdrop click
+
+  form.addEventListener('submit',e=>{
+    if(!form.reportValidity()){ e.preventDefault(); return; }
+    e.preventDefault();
+    const f = new FormData(form);
+    const name=(f.get('name')||'').trim();
+    const body =
+      `Name: ${name}\n`+
+      `Email: ${(f.get('email')||'').trim()}\n`+
+      `Location: ${(f.get('location')||'').trim()}\n`+
+      `Species of interest: ${(f.get('species')||'').trim()}\n`+
+      `Society affiliation: ${(f.get('society')||'').trim()}\n\n`+
+      `I'd like to collect pollinator specimens for Poll-A-Gen.`;
+    const href = `mailto:pollagen@nhm.ac.uk`+
+      `?subject=${encodeURIComponent('Poll-A-Gen — collecting enquiry'+(name?` from ${name}`:''))}`+
+      `&body=${encodeURIComponent(body)}`;
+    window.location.href = href;
+    close();
+  });
+})();
 
 init();
