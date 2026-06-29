@@ -130,6 +130,7 @@ function groupedSpecies(){
     if(!g){ g=['Other species',[]]; groups.push(g); }
     g[1].push(sp);
   }
+  groups.forEach(([,sps])=>sps.sort((a,b)=>a.localeCompare(b)));   // alphabetical within group
   return groups;
 }
 /* Which groups share a column on the homepage, so the three columns balance:
