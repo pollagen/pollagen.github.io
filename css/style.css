@@ -77,9 +77,11 @@ main{max-width:1100px;margin:0 auto;padding:2.4rem 1.4rem 4rem}
   font:inherit;text-decoration:underline;cursor:pointer}
 .link-btn:hover{color:var(--amber)}
 
-/* about the project */
-.about{margin-top:3rem;max-width:72ch}
+/* about the project (full page width) */
+.about{margin-top:3rem}
 .about h2{font-family:var(--display);font-weight:500;font-size:1.4rem;margin-bottom:.9rem}
+.about h3{font-family:var(--display);font-weight:500;font-size:1.15rem;
+  color:var(--sage-deep);margin:1.6rem 0 .6rem}
 .about p{color:var(--muted);font-size:1rem;margin-bottom:.8rem}
 .about p b{color:var(--ink)}
 
@@ -87,8 +89,9 @@ main{max-width:1100px;margin:0 auto;padding:2.4rem 1.4rem 4rem}
 .species-block{margin-top:3rem}
 .species-block h2{font-family:var(--display);font-weight:500;font-size:1.4rem;
   margin-bottom:1.1rem}
-.sp-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+.sp-list{display:grid;grid-template-columns:repeat(3,1fr);
   gap:1.4rem 2rem;align-items:start}
+.sp-col{display:flex;flex-direction:column;gap:1.7rem}
 .sp-group-h{display:flex;align-items:baseline;justify-content:space-between;
   font-family:var(--mono);font-size:.74rem;text-transform:uppercase;
   letter-spacing:.1em;color:var(--sage-deep);margin-bottom:.4rem;
@@ -178,10 +181,16 @@ footer div{max-width:1100px;margin:0 auto;padding:1.4rem;display:flex;
   font-size:1.6rem;line-height:1;color:var(--muted);cursor:pointer}
 .modal-close:hover{color:var(--ink)}
 
+@media(max-width:900px){
+  .sp-list{grid-template-columns:repeat(2,1fr)}
+}
 @media(max-width:760px){
   .hero{grid-template-columns:1fr;gap:1.6rem}
   #map{height:460px}
   nav{width:100%;order:3}
+}
+@media(max-width:600px){
+  .sp-list{grid-template-columns:1fr}
 }
 @media(prefers-reduced-motion:reduce){
   .panel.active{animation:none}*{scroll-behavior:auto}
