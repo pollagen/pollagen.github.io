@@ -12,7 +12,7 @@ const RAMP = ['--c0','--c1','--c2','--c3','--c4','--c5','--c6']
    added to the matching genus group, or to "Other species". */
 const SPECIES_GROUPS = [
   ['Bumblebees (Females only, no queens)',   ['Bombus terrestris','Bombus hortorum','Bombus pascuorum','Bombus lapidarius','Bombus jonellus','Bombus humilis','Bombus ruderatus']],
-  ['Solitary bees (Females only, no queens)',['Osmia bicornis','Andrena flavipes']],
+  ['Solitary bees (Females only)',['Osmia bicornis','Andrena flavipes']],
   ['Wasps (Females only, no queens)',        ['Vespula vulgaris','Dolichovespula sylvestris']],
   ['Hoverflies',   ['Episyrphus balteatus','Syritta pipiens','Myathropa florea','Baccha elongata','Leucozona laternaria']],
 ];
@@ -137,7 +137,7 @@ function groupedSpecies(){
    Bumblebees | Solitary bees + Wasps | Hoverflies (group names include the Females-only note) */
 const COLUMN_LAYOUT = [
   ['Bumblebees (Females only, no queens)'],
-  ['Solitary bees (Females only, no queens)','Wasps (Females only, no queens)'],
+  ['Solitary bees (Females only)','Wasps (Females only, no queens)'],
   ['Hoverflies'],
 ];
 function renderGroup(groupName, species, max){
