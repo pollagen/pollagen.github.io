@@ -4,6 +4,10 @@ const DATA_CSV    = 'data/specimens.csv';
 const DATA_GEO    = 'data/uk-counties.json';     // county / unitary authority TopoJSON (WGS84)
 const GEO_OBJECT  = 'counties';                  // object name inside the TopoJSON
 const NAME_PROP   = 'name';                      // county name field
+/* CARTO Basemaps API key. Raster (PNG) basemap tiles require it; without it the
+   tiles carry an "API key required" watermark. Public by design (it ships to the
+   browser) — restrict it by domain in the CARTO dashboard. */
+const CARTO_KEY   = 'cb1_3g98_1_b0d068b90f22929233aa44f0';
 const RAMP = ['--c0','--c1','--c2','--c3','--c4','--c5','--c6']
   .map(v => getComputedStyle(document.documentElement).getPropertyValue(v).trim());
 
@@ -218,8 +222,9 @@ function colour(v,mx){
 function initMap(){
   document.getElementById('map-loading')?.remove();
   map=L.map('map',{scrollWheelZoom:false}).setView([54.6,-3.2],5.4);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',{
-    attribution:'&copy; OpenStreetMap &copy; CARTO', subdomains:'abcd', maxZoom:12
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png?key='+CARTO_KEY,{
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains:'abcd', maxZoom:12
   }).addTo(map);
   geoLayer=L.geoJSON(COUNTY_GEO,{style:featStyle, onEachFeature:bindFeat}).addTo(map);
   markerLayer=L.layerGroup().addTo(map);
