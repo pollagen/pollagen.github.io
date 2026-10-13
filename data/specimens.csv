@@ -83,7 +83,11 @@ Bombus pascuorum,11/09/2025,56.068,-6.195
 Vespula vulgaris,18/09/2025,56.334,-6.392
 Bombus hortorum,02/11/2025,56.133,-5.487
 Osmia bicornis,10/11/2025,52.661,-3.147
+<<<<<<< Updated upstream
 Syritta pipiens,10/09/2025,53.528,-2.030
+=======
+Syritta pipiens,10/09/2025,53.528,-2.03
+>>>>>>> Stashed changes
 Episyrphus balteatus,04/09/2025,52.915,-4.138
 Baccha elongata,10/09/2025,53.528,-2.030
 Syritta pipiens,31/08/2025,52.855,-4.482
@@ -91,8 +95,13 @@ Episyrphus balteatus,07/09/2025,53.528,-2.030
 Episyrphus balteatus,29/06/2026,51.496,-0.177
 Bombus pascuorum,29/06/2026,51.496,-0.177
 Bombus terrestris,29/06/2026,51.496,-0.177
+<<<<<<< Updated upstream
 Bombus lapidarius,24/06/2026,50.540,-2.429
 Bombus lapidarius,14/06/2026,51.675,-0.860
+=======
+Bombus lapidarius,24/06/2026,50.54,-2.429
+Bombus lapidarius,14/06/2026,51.675,-0.86
+>>>>>>> Stashed changes
 Osmia bicornis,19/04/2026,51.768,-0.591
 Bombus terrestris,14/06/2026,50.725,-2.936
 Osmia bicornis,04/06/2026,57.328,-3.609
